@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/navBar";
-
+import { Player } from "@/components/player/player";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -29,6 +29,7 @@ export default function RootLayout({
         <div className="w-screen h-full flex-col items-center justify-center">
           <NavBar />
           {children}
+          <Player />
         </div>
       </body>
     </html>
