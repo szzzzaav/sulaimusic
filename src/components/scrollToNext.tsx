@@ -13,7 +13,7 @@ const ScrollBar = ({ children }: { children: React.ReactNode }) => {
 const ScrollContent = ({ width }: { width: number }) => {
   return (
     <div
-      className="h-full bg-green-600 absolute top-0 left-0 transition-all duration-300"
+      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 absolute top-0 left-0 transition-all duration-300"
       style={{ width: `${width}%` }}
     ></div>
   );
