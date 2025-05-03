@@ -43,18 +43,20 @@ const ResizableHandle = ({
   const startPositionRef = useRef<null | number>(null);
   const initialWidthRef = useRef<number>(width);
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
     if (isHover) {
+      e.preventDefault();
+      e.stopPropagation();
       setIsDragging(true);
       startPositionRef.current = e.clientX;
       document.body.style.cursor = "col-resize";
+      initialWidthRef.current = width;
     }
-    initialWidthRef.current = width;
   };
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      e.preventDefault();
       if (isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
         document.body.style.cursor = "grab";
         const delta = e.pageX - (startPositionRef.current || 0);
         const containerWidth = containerRef?.current?.clientWidth || 0;
@@ -74,10 +76,13 @@ const ResizableHandle = ({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      startPositionRef.current = null;
-      document.body.style.cursor = "";
+      if (isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        startPositionRef.current = null;
+        document.body.style.cursor = "";
+      }
     };
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
@@ -90,7 +95,7 @@ const ResizableHandle = ({
   return (
     <div
       className={twMerge(
-        "w-[8px] h-full cursor-col-resize relative z-10 flex items-center justify-center "
+        "w-[8px] h-full cursor-col-resize relative z-10 flex items-center justify-center shrink-0"
       )}
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
@@ -98,7 +103,7 @@ const ResizableHandle = ({
     >
       <div
         className={twMerge(
-          "h-[90%] w-[1px] bg-gray-500 rounded-full opacity-0 transition-opacity",
+          "h-[90%] w-[2px] bg-gray-500 rounded-full opacity-0 transition-opacity shrink-0",
           (isHover || isDragging) && "opacity-100",
           isDragging && "bg-white"
         )}

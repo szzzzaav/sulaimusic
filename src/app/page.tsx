@@ -1,36 +1,67 @@
 "use client";
 
-import ContentArea from "@/components/contentArea";
-import PlayCard from "@/components/playCard";
+import ContentArea from "@/components/content/contentArea";
+import PlayCard from "@/components/playCard/playCard";
 import PlayList from "@/components/playList";
 import ResizableContainer from "@/components/resizableContainer";
-import { useRef } from "react";
+
+import { useRef, useState } from "react";
+
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [playListWidth, setPlayListWidth] = useState(25);
+  const [playCardWidth, setPlayCardWidth] = useState(20);
+  const [isCardExpanded, setIsCardExpanded] = useState(false);
+
+  const handlePlayCardResize = (size: number) => {
+    setPlayCardWidth(size);
+  };
+
+  const handlePlayListResize = (size: number) => {
+    setPlayListWidth(size);
+  };
+
+  const handleCardExpandToggle = (expanded: boolean) => {
+    setIsCardExpanded(expanded);
+  };
+
   return (
     <div
-      className="w-screen h-[80%] flex items-center justify-center relative p-2"
+      className="w-screen h-full flex items-center justify-center relative overflow-hidden"
       ref={containerRef}
     >
-      <ResizableContainer
-        maxWidth={32}
-        minWidth={5}
-        initialWidth={25}
-        handlePosition="right"
-        containerRef={containerRef}
-        limitMinBoundary={10}
+      <div
+        className={`flex w-auto h-full transition-transform duration-500 ease-in-out ${
+          isCardExpanded ? "-translate-x-[110%]" : "translate-x-0"
+        }`}
+        style={{ width: `${100 - playCardWidth}%` }}
       >
-        <PlayList />
-      </ResizableContainer>
-      <ContentArea></ContentArea>
+        <ResizableContainer
+          maxWidth={32}
+          minWidth={5}
+          initialWidth={playListWidth}
+          handlePosition="right"
+          containerRef={containerRef}
+          limitMinBoundary={15}
+          onResize={handlePlayListResize}
+        >
+          <PlayList panelSize={playListWidth} setPanelSize={setPlayListWidth} />
+        </ResizableContainer>
+
+        <div style={{ width: `${100 - playListWidth}%` }} className="h-full">
+          <ContentArea />
+        </div>
+      </div>
+
       <ResizableContainer
-        maxWidth={30}
+        maxWidth={25}
         minWidth={18}
-        initialWidth={20}
+        initialWidth={playCardWidth}
         handlePosition="left"
         containerRef={containerRef}
+        onResize={handlePlayCardResize}
       >
-        <PlayCard />
+        <PlayCard onExpandToggle={handleCardExpandToggle} />
       </ResizableContainer>
     </div>
   );

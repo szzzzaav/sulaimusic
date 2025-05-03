@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import NextImage from "next/image";
+import { useState } from "react";
 import { Skeleton } from "../skeleton";
 export const MediaItem = () => {
   const [isLoading, setIsLoading] = useState(true);

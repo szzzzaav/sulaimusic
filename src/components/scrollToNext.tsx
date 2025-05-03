@@ -4,6 +4,11 @@ import { HiArrowCircleRight } from "react-icons/hi";
 import { twMerge } from "tailwind-merge";
 import { useRef, useState, useEffect } from "react";
 
+const MAX_PROGRESS = 100;
+const SCROLL_SENSITIVITY = 8;
+const DECAY_RATE = 1;
+const DECAY_INTERVAL = 30;
+
 const ScrollBar = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="w-full h-1 rounded-sm bg-zinc-600 overflow-hidden relative">{children}</div>
@@ -23,12 +28,27 @@ const ScrollContainer = ({
   children,
   className,
   ref,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   children: React.ReactNode;
   className?: string;
   ref?: React.RefObject<HTMLDivElement | null>;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) => {
   const [isHover, setIsHover] = useState(false);
+
+  const handleMouseEnter = () => {
+    setIsHover(true);
+    if (onMouseEnter) onMouseEnter();
+  };
+
+  const handleMouseLeave = () => {
+    setIsHover(false);
+    if (onMouseLeave) onMouseLeave();
+  };
+
   return (
     <div
       className={twMerge(
@@ -36,8 +56,8 @@ const ScrollContainer = ({
         className
       )}
       ref={ref}
-      onMouseEnter={() => setIsHover(true)}
-      onMouseLeave={() => setIsHover(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="w-full h-auto flex items-center justify-center gap-2 absolute top-0 left-0 transition-all duration-300 pl-10 pr-10 rounded-sm ">
         <span className="text-sm text-zinc-300 font-bold">NEXT</span>
@@ -61,17 +81,22 @@ const ScrollContainer = ({
 export default function ScrollToNext() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [width, setWidth] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     let progress = 0;
-    const MAX_PROGRESS = 100;
-    const SCROLL_SENSITIVITY = 8;
-    const DECAY_RATE = 1;
-    const DECAY_INTERVAL = 30;
 
     let decayTimerId: NodeJS.Timeout | null = null;
 
@@ -126,36 +151,38 @@ export default function ScrollToNext() {
       }, 300);
     };
 
-    const handleMouseEnter = () => {
+    if (isHovered) {
       window.addEventListener("wheel", handleWheel, { passive: false });
-    };
-
-    const handleMouseLeave = () => {
+    } else {
       window.removeEventListener("wheel", handleWheel);
       startProgressDecay();
-    };
-
-    container.addEventListener("mouseenter", handleMouseEnter);
-    container.addEventListener("mouseleave", handleMouseLeave);
+    }
 
     return () => {
-      container.removeEventListener("mouseenter", handleMouseEnter);
-      container.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("wheel", handleWheel);
-
       if (decayTimerId) clearInterval(decayTimerId);
       if (wheelTimeout) clearTimeout(wheelTimeout);
     };
-  }, [isTransitioning]);
+  }, [isTransitioning, isHovered]);
 
   useEffect(() => {
     if (!isTransitioning) {
       setWidth(0);
+    } else {
+      const resetTimer = setTimeout(() => {
+        setIsTransitioning(false);
+      }, 500);
+
+      return () => clearTimeout(resetTimer);
     }
   }, [isTransitioning]);
 
   return (
-    <ScrollContainer ref={containerRef}>
+    <ScrollContainer
+      ref={containerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <ScrollBar>
         <ScrollContent width={width} />
       </ScrollBar>

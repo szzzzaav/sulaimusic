@@ -1,20 +1,16 @@
 import { PlusIcon } from "lucide-react";
 import { Button } from "./ui/button";
-import { RiExpandDiagonalLine } from "react-icons/ri";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { twMerge } from "tailwind-merge";
 import { LuPanelLeftClose, LuPanelLeftOpen } from "react-icons/lu";
 
-// 默认设置
 const DEFAULT_SIZE = 25;
 const MIN_SIZE = 5;
 
-// 尺寸阈值（像素）
-const COMPACT_THRESHOLD = 220; // 小于这个值启用紧凑模式
-const HIDE_TEXT_THRESHOLD = 300; // 小于这个值隐藏文本
-const HIDE_EXPAND_THRESHOLD = 240; // 小于这个值隐藏展开按钮
-const HIDE_HEADER_THRESHOLD = 140; // 小于这个值隐藏头部标题
-const SHOW_CONTENT_THRESHOLD = 300; // 大于这个值显示内容
+const COMPACT_THRESHOLD = 220;
+const HIDE_TEXT_THRESHOLD = 250;
+const HIDE_HEADER_THRESHOLD = 100;
+const SHOW_CONTENT_THRESHOLD = 290;
 
 interface PlayListProps {
   panelSize?: number;
@@ -26,37 +22,50 @@ function usePlayList(props: PlayListProps) {
   const [internalPanelSize, setInternalPanelSize] = useState(DEFAULT_SIZE);
   const [isCompact, setIsCompact] = useState(false);
   const [containerWidthPx, setContainerWidthPx] = useState(300);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const currentPanelSize = panelSize !== undefined ? panelSize : internalPanelSize;
   const updatePanelSize = setPanelSize || setInternalPanelSize;
 
-  useEffect(() => {
-    const calculateWidth = () => {
-      const windowWidth = window.innerWidth;
-      const widthInPixels = (windowWidth * currentPanelSize) / 100;
+  // 使用防抖函数优化尺寸计算
+  const calculateWidth = useCallback(() => {
+    if (!containerRef.current) return;
+
+    // 直接使用容器的实际宽度，而不是通过计算得到
+    const widthInPixels = containerRef.current.offsetWidth;
+
+    if (widthInPixels !== containerWidthPx) {
       setContainerWidthPx(widthInPixels);
       setIsCompact(widthInPixels < COMPACT_THRESHOLD);
-    };
+    }
+  }, [containerWidthPx]);
+
+  // 使用 ResizeObserver 监听容器尺寸变化
+  useEffect(() => {
+    if (!containerRef.current) return;
 
     calculateWidth();
 
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(calculateWidth);
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    // 同时保留窗口大小变化的监听
     window.addEventListener("resize", calculateWidth);
 
-    const resizeObserver = new ResizeObserver(calculateWidth);
-    const element = document.querySelector(".music-playlist");
-    if (element) {
-      resizeObserver.observe(element);
-    }
-
     return () => {
-      window.removeEventListener("resize", calculateWidth);
-      if (element) {
-        resizeObserver.unobserve(element);
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
       }
+      window.removeEventListener("resize", calculateWidth);
+      resizeObserver.disconnect();
     };
-  }, [currentPanelSize]);
+  }, [calculateWidth]);
 
   return {
+    containerRef,
     containerWidthPx,
     isCompact,
     setIsCompact,
@@ -78,17 +87,26 @@ function PlayListHeader({
   isHover: boolean;
   onClose: () => void;
 }) {
+  // 使用 useMemo 缓存样式计算结果
+  const headerStyles = useMemo(
+    () => ({
+      isHidden: containerWidthPx < HIDE_HEADER_THRESHOLD,
+      isTextHidden: containerWidthPx < HIDE_TEXT_THRESHOLD,
+    }),
+    [containerWidthPx]
+  );
+
   return (
     <div
       className={twMerge(
         "flex items-center justify-between mb-4",
-        containerWidthPx < HIDE_HEADER_THRESHOLD && "flex-col gap-2"
+        headerStyles.isHidden && "flex-col gap-2"
       )}
     >
       <span
         className={twMerge(
           "text-white font-bold flex items-center relative",
-          containerWidthPx < HIDE_HEADER_THRESHOLD && "hidden"
+          headerStyles.isHidden && "hidden"
         )}
       >
         <LuPanelLeftClose
@@ -115,14 +133,14 @@ function PlayListHeader({
           variant={"outline"}
         >
           <PlusIcon className={isCompact ? "w-4 h-4" : "w-5 h-5"} />
-          {containerWidthPx > HIDE_TEXT_THRESHOLD && <span className="font-bold">创建歌单</span>}
+          {!headerStyles.isTextHidden && <span className="font-bold">创建歌单</span>}
         </Button>
       </div>
       <Button
         variant={"outline"}
         className={twMerge(
           "font-bold flex items-center gap-2 cursor-pointer bg-zinc-800/50 hover:bg-zinc-800/80 border-none text-white hover:text-white transition-all duration-300 ",
-          containerWidthPx >= HIDE_HEADER_THRESHOLD && "hidden"
+          !headerStyles.isHidden && "hidden"
         )}
         onClick={onExpand}
       >
@@ -139,7 +157,13 @@ function PlayListContent({
   containerWidthPx: number;
   isCompact: boolean;
 }) {
-  if (containerWidthPx <= SHOW_CONTENT_THRESHOLD || isCompact) {
+  // 使用 useMemo 缓存内容显示条件
+  const shouldShowContent = useMemo(
+    () => containerWidthPx > SHOW_CONTENT_THRESHOLD && !isCompact,
+    [containerWidthPx, isCompact]
+  );
+
+  if (!shouldShowContent) {
     return null;
   }
 
@@ -160,8 +184,7 @@ function PlayListContent({
 }
 
 export default function PlayList(props: PlayListProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { containerWidthPx, isCompact, setIsCompact, updatePanelSize, DEFAULT_SIZE } =
+  const { containerRef, containerWidthPx, isCompact, setIsCompact, updatePanelSize, DEFAULT_SIZE } =
     usePlayList(props);
   const [isHover, setIsHover] = useState(false);
 
