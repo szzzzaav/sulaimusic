@@ -6,7 +6,7 @@ import { PlayToolBar } from "./toolKit";
 
 export const PlayerContent = () => {
   return (
-    <div className="grid grid-cols-3 h-full">
+    <div className="grid h-full w-full grid-cols-[1fr_1.4fr_1fr]">
       <Media />
       <MainContent />
       <PlayToolBar />

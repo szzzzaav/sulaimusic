@@ -16,9 +16,16 @@ export const PlayProgress = () => {
   const [currentTime, setCurrentTime] = useState(0);
   useEffect(() => {
     if (timeRef.current) {
+      timeRef.current.textContent = formatTime(timeCalculation()!);
+    }
+  }, [songLength]);
+  useEffect(() => {
+    if (timeRef.current) {
       const func = () => {
-        timeRef.current!.textContent = formatTime(timeCalculation()!);
-        requestAnimationFrame(func);
+        if (timeRef.current) {
+          timeRef.current.textContent = formatTime(timeCalculation()!);
+          requestAnimationFrame(func);
+        }
       };
       func();
       const event = requestAnimationFrame(func);
@@ -27,11 +34,12 @@ export const PlayProgress = () => {
   }, [timeCalculation]);
 
   return (
-    <div className="w-full h-3 flex items-center justify-center gap-2 text-zinc-400 text-sm">
-      <span className="text-nowrap" ref={timeRef}>
+    <div className="w-full h-3 flex items-center justify-center gap-2 text-zinc-400 text-sm relative">
+      <span className="text-nowrap relative z-0" ref={timeRef}>
         -:--
       </span>
-      <Slider max={songLength} min={0} />
+
+      <Slider max={songLength} min={0} currentTime={currentTime} setCurrentTime={setCurrentTime} />
       <span className="text-nowrap">{formatTime(songLength) || "-:--"}</span>
     </div>
   );
@@ -40,17 +48,19 @@ export const PlayProgress = () => {
 interface SliderProps {
   max?: number;
   min?: number;
+  currentTime: number;
+  setCurrentTime: (currentTime: number) => void;
 }
 
-const Slider: React.FC<SliderProps> = ({ max = 100, min = 0 }) => {
-  const { timeCalculation } = useSongContext();
+const Slider: React.FC<SliderProps> = ({ max = 100, min = 0, currentTime, setCurrentTime }) => {
   const [hover, setHover] = useState(false);
+  const { timeCalculation, isPlaying } = useSongContext();
   const progressRef = useRef<HTMLDivElement>(null);
   const getPercentage = (value: number) => {
     return ((value - min) / (max - min)) * 100;
   };
   useEffect(() => {
-    if (progressRef.current) {
+    if (progressRef.current && isPlaying) {
       const func = () => {
         if (progressRef.current) {
           progressRef.current.style.width = `${getPercentage(timeCalculation()!)}%`;
@@ -60,7 +70,7 @@ const Slider: React.FC<SliderProps> = ({ max = 100, min = 0 }) => {
       const event = requestAnimationFrame(func);
       return () => cancelAnimationFrame(event);
     }
-  }, [timeCalculation]);
+  }, [isPlaying]);
   return (
     <div
       className="relative flex items-center w-full h-[10px] cursor-pointer"
@@ -76,14 +86,31 @@ const Slider: React.FC<SliderProps> = ({ max = 100, min = 0 }) => {
           )}
         ></div>
       </div>
-      <Input hover={hover} max={max} min={min} />
+      <Input hover={hover} max={max} min={min} setCurrentTime={setCurrentTime} />
     </div>
   );
 };
 
-const Input = ({ hover, max, min }: { hover: boolean; max: number; min: number }) => {
-  const { timeCalculation } = useSongContext();
-  const [value, setValue] = useState<number>(timeCalculation()!);
+const Input = ({
+  hover,
+  max,
+  min,
+  setCurrentTime,
+}: {
+  hover: boolean;
+  max: number;
+  min: number;
+  setCurrentTime: (currentTime: number) => void;
+}) => {
+  const { timeCalculation, jumpAudio } = useSongContext();
+  const [value, setValue] = useState<number>(0);
+
+  useEffect(() => {
+    const time = timeCalculation();
+    if (time !== undefined) {
+      setValue(time);
+    }
+  }, []);
 
   const getPercentage = (value: number) => {
     return ((value - min) / (max - min)) * 100;
@@ -91,9 +118,13 @@ const Input = ({ hover, max, min }: { hover: boolean; max: number; min: number }
 
   useEffect(() => {
     if (hover) {
-      setValue(timeCalculation()!);
+      const time = timeCalculation();
+      if (time !== undefined) {
+        setValue(time);
+      }
     }
-  }, [hover]);
+  }, [hover, timeCalculation]);
+
   return (
     <div
       className={twMerge(
@@ -112,7 +143,20 @@ const Input = ({ hover, max, min }: { hover: boolean; max: number; min: number }
         max={max}
         min={min}
         value={value}
-        onChange={(e) => setValue(Number(e.target.value))}
+        onMouseDown={() => {
+          const time = timeCalculation();
+          if (time !== undefined) {
+            setCurrentTime(time);
+          }
+        }}
+        onChange={(e) => {
+          setValue(Number(e.target.value));
+          setCurrentTime(Number(e.target.value));
+        }}
+        onMouseUp={() => {
+          setCurrentTime(0);
+          jumpAudio(value);
+        }}
       />
     </div>
   );
@@ -124,12 +168,16 @@ const CustomInput = ({
   min,
   value,
   onChange,
+  onMouseUp,
+  onMouseDown,
 }: {
   hover: boolean;
   max: number;
   min: number;
   value?: number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onMouseUp?: () => void;
+  onMouseDown?: () => void;
 }) => {
   return (
     <input
@@ -169,8 +217,10 @@ const CustomInput = ({
       type="range"
       max={max}
       min={min}
-      value={value}
+      value={value || 0}
       onChange={onChange}
+      onMouseUp={onMouseUp}
+      onMouseDown={onMouseDown}
     />
   );
 };

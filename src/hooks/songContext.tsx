@@ -10,6 +10,8 @@ interface SongContextType {
   pauseAudio: () => void;
   timeCalculation: () => number | undefined;
   songLength: number;
+  jumpAudio: (time: number) => void;
+  isPlaying: boolean;
   // audioContextRef: React.RefObject<AudioContext | null>;
   // audioSourceRef: React.RefObject<AudioBufferSourceNode | null>;
   // audioBufferRef: React.RefObject<AudioBuffer | null>;
@@ -53,7 +55,7 @@ const SongContextProvider = ({ children }: { children: React.ReactNode }) => {
     };
     fetchSong();
   }, []);
-  const { playAudio, pauseAudio, timeCalculation, songLength } = useAudio({
+  const { playAudio, pauseAudio, timeCalculation, songLength, jumpAudio, isPlaying } = useAudio({
     bufferData: songRef.current!,
     isLoaded,
   });
@@ -67,6 +69,8 @@ const SongContextProvider = ({ children }: { children: React.ReactNode }) => {
         pauseAudio,
         timeCalculation,
         songLength,
+        jumpAudio,
+        isPlaying,
       }}
     >
       {children}

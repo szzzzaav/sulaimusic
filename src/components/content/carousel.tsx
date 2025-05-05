@@ -22,10 +22,7 @@ export default function Carousel({
       const clientWidth = container.clientWidth;
       const scrollWidth = container.scrollWidth;
 
-      // 检查是否需要显示左箭头
       setShowLeft(scrollLeft > 0);
-
-      // 检查是否需要显示右箭头（考虑小数点精度问题，增加1px的容差）
       const maxScrollLeft = scrollWidth - clientWidth;
       setShowRight(Math.ceil(scrollLeft) < Math.floor(maxScrollLeft) - 1);
     }
@@ -59,15 +56,12 @@ export default function Carousel({
       }));
       setDimensions(childDimensions);
 
-      // 当子元素或容器尺寸变化时更新箭头状态
       updateArrows();
     }
   }, [children]);
 
-  // 为Carousel组件添加一个state来跟踪容器宽度
   const [containerWidth, setContainerWidth] = useState(0);
 
-  // 监听容器宽度变化
   useEffect(() => {
     updateArrows();
   }, [containerWidth]);
@@ -81,17 +75,14 @@ export default function Carousel({
 
       container.addEventListener("scroll", handleScroll);
 
-      // 监听窗口大小变化
       const handleResize = () => {
         updateArrows();
         setContainerWidth(container.clientWidth);
       };
       window.addEventListener("resize", handleResize);
 
-      // 使用ResizeObserver监听容器尺寸变化
       const resizeObserver = new ResizeObserver(() => {
         updateArrows();
-        // 重新计算子元素尺寸
         const childElements = container.querySelectorAll(".carousel-item");
         const childDimensions = Array.from(childElements).map((child) => ({
           width: child.clientWidth,
@@ -104,32 +95,16 @@ export default function Carousel({
 
       resizeObserver.observe(container);
 
-      // 使用MutationObserver监听DOM变化
-      const mutationObserver = new MutationObserver(() => {
-        updateArrows();
-        setContainerWidth(container.clientWidth);
-      });
-
-      mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["style", "class"],
-      });
-
       updateArrows();
-      setContainerWidth(container.clientWidth);
 
       return () => {
         container.removeEventListener("scroll", handleScroll);
         window.removeEventListener("resize", handleResize);
         resizeObserver.disconnect();
-        mutationObserver.disconnect();
       };
     }
   }, []);
 
-  // 监听子元素和布局变化
   useEffect(() => {
     updateArrows();
   }, [dimensions]);

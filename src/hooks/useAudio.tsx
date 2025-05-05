@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useEffect } from "react";
 // 跳转 totalPauseTime = clacTime - jump
 export const useAudio = ({
@@ -10,7 +10,6 @@ export const useAudio = ({
   bufferData: ArrayBuffer;
   isLoaded: boolean;
 }) => {
-  const songLengthRef = useRef<number>(0);
   const startTimeStampRef = useRef<number>(0);
   const startPauseTimeStampRef = useRef<number>(0);
   const endPauseTimeStampRef = useRef<number>(0);
@@ -24,6 +23,7 @@ export const useAudio = ({
 
   const [started, setStarted] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [songLength, setSongLength] = useState<number>(0);
 
   const initAudio = async (bufferData: ArrayBuffer) => {
     audioContextRef.current = new AudioContext();
@@ -43,7 +43,7 @@ export const useAudio = ({
 
     try {
       audioBufferRef.current = await audioContext.decodeAudioData(bufferData);
-      songLengthRef.current = audioBufferRef.current.duration;
+      setSongLength(audioBufferRef.current.duration);
       audioSource.buffer = audioBufferRef.current;
     } catch (error) {
       console.error(error);
@@ -69,21 +69,77 @@ export const useAudio = ({
     if (!started) {
       audioContextRef.current.resume();
       startTimeStampRef.current = audioContextRef.current.currentTime;
-      audioSourceRef.current.start(0);
       setStarted(true);
     } else {
       endPauseTimeStampRef.current = audioContextRef.current.currentTime;
       totalPauseTimeRef.current += endPauseTimeStampRef.current - startPauseTimeStampRef.current;
       audioContextRef.current.resume();
     }
-    setIsPlaying(true);
+    try {
+      // 获取当前应该播放的时间位置
+      const playPosition = timeCalculation();
+      if (playPosition !== undefined) {
+        audioSourceRef.current.start(0, playPosition);
+      } else {
+        audioSourceRef.current.start(0);
+      }
+      setIsPlaying(true);
+    } catch (error) {
+      console.error(error);
+    }
   };
+
   const pauseAudio = () => {
     if (!audioContextRef.current || !audioSourceRef.current) return;
     startPauseTimeStampRef.current = audioContextRef.current.currentTime;
     audioContextRef.current.suspend();
     setIsPlaying(false);
   };
+  const disconnectAudio = () => {
+    if (!audioContextRef.current || !audioSourceRef.current) return;
+    audioSourceRef.current.disconnect(audioAnalyserRef.current!);
+    audioSourceRef.current.disconnect(audioGainRef.current!);
+    audioGainRef.current!.disconnect(audioContextRef.current!.destination);
+  };
+
+  const initSource = () => {
+    if (!audioContextRef.current || !audioSourceRef.current) return;
+    audioSourceRef.current = audioContextRef.current.createBufferSource();
+    const audioSource = audioSourceRef.current;
+    audioSource.buffer = audioBufferRef.current!;
+    audioSource.connect(audioAnalyserRef.current!);
+    audioSource.connect(audioGainRef.current!);
+    audioGainRef.current!.connect(audioContextRef.current!.destination);
+  };
+
+  const jumpAudio = (time: number) => {
+    if (!audioContextRef.current || !audioSourceRef.current) return;
+
+    try {
+      // 停止当前播放
+      audioSourceRef.current.stop();
+    } catch (error) {
+      // 忽略未开始播放时调用stop的错误
+      console.log("Audio source not started");
+    }
+
+    disconnectAudio();
+
+    initSource();
+
+    const currentTime = audioContextRef.current.currentTime;
+    startTimeStampRef.current = currentTime - time;
+
+    if (isPlaying) {
+      audioSourceRef.current.start(0, time);
+      audioContextRef.current.resume();
+    } else {
+      startPauseTimeStampRef.current = currentTime;
+    }
+
+    totalPauseTimeRef.current = 0;
+  };
+
   return {
     audioContext: audioContextRef.current,
     audioSource: audioSourceRef.current,
@@ -93,6 +149,8 @@ export const useAudio = ({
     playAudio,
     pauseAudio,
     timeCalculation,
-    songLength: songLengthRef.current,
+    songLength,
+    jumpAudio,
+    isPlaying,
   };
 };
